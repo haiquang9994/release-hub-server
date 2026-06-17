@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReleaseHub Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div class="app-container">
+    <!-- Sidebar -->
+    <aside class="sidebar">
+      <div class="brand">
+        <svg class="brand-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <span>ReleaseHub</span>
+      </div>
+      <nav class="nav-menu">
+        <a href="#" class="nav-item active">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+          Dashboard
+        </a>
+      </nav>
+      <div class="sidebar-footer">
+        <div class="status-indicator"></div>
+        <span>Server Online</span>
+      </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+      <!-- Header -->
+      <header class="top-header">
+        <div class="header-title">
+          <h1>OTA Releases Dashboard</h1>
+          <p>Monitor and manage your React Native OTA updates</p>
+        </div>
+      </header>
+
+      <!-- Stats Grid -->
+      <section class="stats-grid">
+        <div class="stat-card">
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+          </div>
+          <div class="stat-details">
+            <h3 id="stat-apps">0</h3>
+            <p>Active Apps</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+          </div>
+          <div class="stat-details">
+            <h3 id="stat-releases">0</h3>
+            <p>Total Releases</p>
+          </div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-icon">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect><line x1="12" y1="18" x2="12.01" y2="18"></line></svg>
+          </div>
+          <div class="stat-details">
+            <h3 id="stat-platforms">0</h3>
+            <p>Platforms</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- Main Section: Filters and List -->
+      <div class="content-body">
+        <!-- Control Card (Filters) -->
+        <section class="control-card">
+          <h2>Filter Updates</h2>
+          <div class="filters-grid">
+            <div class="filter-group">
+              <label for="app-select">Application</label>
+              <select id="app-select">
+                <option value="">Select App</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="platform-select">Platform</label>
+              <select id="platform-select">
+                <option value="">Select Platform</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label for="deployment-select">Deployment</label>
+              <select id="deployment-select">
+                <option value="">Select Deployment</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <!-- Releases Table Card -->
+        <section class="table-card">
+          <div class="table-header">
+            <h2>Release History</h2>
+            <div class="badge" id="results-count">0 releases found</div>
+          </div>
+          <div class="table-container">
+            <table class="releases-table">
+              <thead>
+                <tr>
+                  <th>Target Binary</th>
+                  <th>Hash</th>
+                  <th>Mandatory</th>
+                  <th>Size</th>
+                  <th>Date</th>
+                  <th>Description</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="releases-tbody">
+                <tr>
+                  <td colspan="7" class="empty-state">Please select Application, Platform, and Deployment to view releases.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">Hash copied to clipboard!</div>
+
+  <script src="app.js"></script>
+</body>
+</html>
