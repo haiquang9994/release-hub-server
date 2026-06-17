@@ -115,6 +115,7 @@ export async function initDb(): Promise<void> {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       userId INTEGER NOT NULL,
       token TEXT NOT NULL UNIQUE,
+      type TEXT NOT NULL DEFAULT 'cli',
       createdAt TEXT NOT NULL,
       lastUsedAt TEXT,
       FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
@@ -138,37 +139,37 @@ export async function createUser(username: string, password: string, role: 'admi
   return result.lastID!;
 }
 
-export async function getUserByToken(token: string): Promise<User | null> {
+export async function getUserByToken(token: string): Promise<(User & { tokenId: number }) | null> {
   const db = await getDb();
-  const user = await db.get<User>(
-    `SELECT u.* FROM users u
+  const row = await db.get<User & { tokenId: number }>(
+    `SELECT u.*, ut.id AS tokenId FROM users u
      INNER JOIN user_tokens ut ON u.id = ut.userId
      WHERE ut.token = ?`,
     [token]
   );
-  if (user) {
+  if (row) {
     // Stamp last used time (fire-and-forget)
     db.run('UPDATE user_tokens SET lastUsedAt = ? WHERE token = ?', [
       new Date().toISOString(), token
     ]).catch(() => {});
   }
-  return user || null;
+  return row || null;
 }
 
-export async function createUserToken(userId: number): Promise<string> {
+export async function createUserToken(userId: number, type: 'web' | 'cli' = 'cli'): Promise<string> {
   const db = await getDb();
   const token = generateToken();
   const createdAt = new Date().toISOString();
   await db.run(
-    `INSERT INTO user_tokens (userId, token, createdAt) VALUES (?, ?, ?)`,
-    [userId, token, createdAt]
+    `INSERT INTO user_tokens (userId, token, type, createdAt) VALUES (?, ?, ?, ?)`,
+    [userId, token, type, createdAt]
   );
   return token;
 }
 
-export async function getUserTokens(userId: number): Promise<{ id: number, token: string, createdAt: string, lastUsedAt: string | null }[]> {
+export async function getUserTokens(userId: number): Promise<{ id: number, token: string, type: string, createdAt: string, lastUsedAt: string | null }[]> {
   const db = await getDb();
-  return db.all('SELECT id, token, createdAt, lastUsedAt FROM user_tokens WHERE userId = ? ORDER BY createdAt DESC', [userId]);
+  return db.all('SELECT id, token, type, createdAt, lastUsedAt FROM user_tokens WHERE userId = ? ORDER BY createdAt DESC', [userId]);
 }
 
 export async function deleteUserToken(userId: number, tokenId: number): Promise<boolean> {

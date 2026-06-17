@@ -335,6 +335,14 @@ function setupAuthListeners() {
 }
 
 function logout() {
+  // Delete session token from DB (fire-and-forget)
+  if (userToken) {
+    fetch('/api/logout', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${userToken}` }
+    }).catch(() => {});
+  }
+
   localStorage.removeItem('token');
   userToken = null;
   currentUser = null;
@@ -401,7 +409,7 @@ async function loadTokens() {
     renderTokensTable(data.tokens || []);
   } catch (err) {
     console.error(err);
-    tbody.innerHTML = `<tr><td colspan="4" class="empty-state" style="color:var(--color-danger)">Error loading tokens.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state" style="color:var(--color-danger)">Error loading tokens.</td></tr>`;
   }
 }
 
@@ -413,19 +421,27 @@ function maskToken(token) {
 function renderTokensTable(tokens) {
   const tbody = document.getElementById('tokens-tbody');
   if (tokens.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="4" class="empty-state">No tokens yet. Click "New Token" to create one.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">No tokens yet. Click "New Token" to create one.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = '';
   tokens.forEach(t => {
     const tr = document.createElement('tr');
+    if (t.isCurrent) tr.classList.add('token-row-current');
     const dateStr    = new Date(t.createdAt).toLocaleString();
     const lastUsed   = t.lastUsedAt
       ? new Date(t.lastUsedAt).toLocaleString()
       : '<span style="color:var(--color-text-muted);font-style:italic">Never</span>';
+    const typeLabel  = t.type === 'web' ? 'Web' : 'CLI';
+    const typeClass  = t.type === 'web' ? 'token-type-web' : 'token-type-cli';
+    const sessionBadge = t.isCurrent
+      ? '<span class="token-current-badge">● Current</span>'
+      : '<span style="color:var(--color-text-muted);font-style:italic">—</span>';
     tr.innerHTML = `
       <td><span class="token-masked">${escapeHtml(maskToken(t.token))}</span></td>
+      <td><span class="token-type-badge ${typeClass}">${typeLabel}</span></td>
+      <td>${sessionBadge}</td>
       <td>${dateStr}</td>
       <td>${lastUsed}</td>
       <td>
@@ -438,7 +454,7 @@ function renderTokensTable(tokens) {
         </button>
       </td>
     `;
-    tr.querySelector('.btn-delete-token').addEventListener('click', () => confirmDeleteToken(t.id));
+    tr.querySelector('.btn-delete-token').addEventListener('click', () => confirmDeleteToken(t.id, t.isCurrent));
     tbody.appendChild(tr);
   });
 }
@@ -480,13 +496,17 @@ async function createNewToken() {
   }
 }
 
-function confirmDeleteToken(tokenId) {
+function confirmDeleteToken(tokenId, isCurrent = false) {
   const overlay = document.createElement('div');
   overlay.className = 'confirm-modal-overlay';
+  const warningMsg = isCurrent
+    ? '<p style="color:var(--color-danger);font-size:0.82rem;margin-top:-10px;margin-bottom:14px;">⚠️ This is your current session token. You will be logged out immediately.</p>'
+    : '';
   overlay.innerHTML = `
     <div class="confirm-modal">
       <h3>Revoke Token?</h3>
       <p>This token will be permanently deleted and any CLI using it will lose access immediately.</p>
+      ${warningMsg}
       <div class="confirm-modal-actions">
         <button class="btn-modal-cancel" id="modal-cancel-btn">Cancel</button>
         <button class="btn-modal-delete" id="modal-delete-btn">Revoke</button>
@@ -498,19 +518,29 @@ function confirmDeleteToken(tokenId) {
   overlay.querySelector('#modal-cancel-btn').addEventListener('click', () => overlay.remove());
   overlay.querySelector('#modal-delete-btn').addEventListener('click', async () => {
     overlay.remove();
-    await deleteToken(tokenId);
+    await deleteToken(tokenId, isCurrent);
   });
 }
 
-async function deleteToken(tokenId) {
+async function deleteToken(tokenId, isCurrent = false) {
   try {
     const res = await fetch(`/api/tokens/${tokenId}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${userToken}` }
     });
     if (!res.ok) throw new Error('Delete failed');
-    showToast('Token revoked.');
-    loadTokens();
+
+    if (isCurrent) {
+      // Token hiện tại đã bị xóa → clear local state và về login
+      localStorage.removeItem('token');
+      userToken = null;
+      currentUser = null;
+      showToast('Session token revoked. Please log in again.');
+      setTimeout(() => logout(), 1200);
+    } else {
+      showToast('Token revoked.');
+      loadTokens();
+    }
   } catch (err) {
     console.error(err);
     showToast('Failed to revoke token.', true);

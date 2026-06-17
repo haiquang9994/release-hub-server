@@ -69,6 +69,7 @@ const authenticate = async (req: express.Request, res: express.Response, next: e
     }
 
     (req as any).user = user;
+    (req as any).currentTokenId = user.tokenId;
     next();
   } catch (error) {
     console.error('Auth middleware error:', error);
@@ -106,8 +107,8 @@ app.post('/api/login', async (req, res) => {
       return;
     }
 
-    // Generate a fresh session token on every login
-    const sessionToken = await createUserToken(user.id);
+    // Generate a fresh session token on every login (type = 'web')
+    const sessionToken = await createUserToken(user.id, 'web');
 
     res.json({
       message: 'Login successful',
@@ -135,8 +136,24 @@ app.get('/api/me', (req, res) => {
       id: user.id,
       username: user.username,
       role: user.role
-    }
+    },
+    currentTokenId: (req as any).currentTokenId
   });
+});
+
+app.post('/api/logout', async (req, res) => {
+  const user = (req as any).user;
+  const tokenId = (req as any).currentTokenId;
+  if (!user || !tokenId) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  try {
+    await deleteUserToken(user.id, tokenId);
+    res.json({ message: 'Logged out successfully' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
 });
 
 app.get('/api/tokens', async (req, res) => {
@@ -147,7 +164,9 @@ app.get('/api/tokens', async (req, res) => {
   }
   try {
     const tokens = await getUserTokens(user.id);
-    res.json({ tokens });
+    const currentTokenId = (req as any).currentTokenId;
+    const result = tokens.map(t => ({ ...t, isCurrent: t.id === currentTokenId }));
+    res.json({ tokens: result });
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
