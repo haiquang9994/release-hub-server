@@ -1,0 +1,8 @@
+node_modules/
+dist/
+*.sqlite
+uploads/
+.env
+.git/
+test_runtime/
+*.log

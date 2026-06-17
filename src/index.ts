@@ -16,8 +16,9 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const API_KEY = process.env.API_KEY || 'release-hub-secret-key';
 
-// Ensure uploads and public directories exist
-const uploadsDir = path.resolve(__dirname, '../uploads');
+// Resolve data directories – override via DATA_DIR env for Docker volumes
+const DATA_DIR = process.env.DATA_DIR || path.resolve(__dirname, '..');
+const uploadsDir = path.join(DATA_DIR, 'uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }

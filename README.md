@@ -89,6 +89,55 @@ npm run delete-user -- --username admin
 
 ---
 
+## Chạy bằng Docker
+
+### Yêu cầu
+- Docker Engine 20.10+ và Docker Compose v2+
+
+### Khởi chạy nhanh
+```bash
+# Build image và khởi chạy container
+docker compose up -d
+
+# Theo dõi log
+docker compose logs -f
+```
+
+Server sẽ chạy tại `http://localhost:4000`. Dữ liệu (SQLite database và file bundle OTA) được lưu trong Docker named volumes, đảm bảo **không mất dữ liệu** khi restart hoặc rebuild container.
+
+### Tạo user sau khi chạy Docker
+```bash
+docker compose exec release-hub-server \
+  node dist/create-user.js --username admin --password adminpass --role admin
+```
+
+### Các lệnh quản lý thường dùng
+```bash
+# Dừng container (giữ lại dữ liệu)
+docker compose down
+
+# Rebuild image sau khi thay đổi code
+docker compose up -d --build
+
+# Xem trạng thái container và health check
+docker compose ps
+```
+
+### Biến môi trường
+Tạo file `.env` bên cạnh `docker-compose.yml` để override cấu hình:
+```env
+PORT=4000
+DATA_DIR=/app/data
+```
+
+### Volumes
+| Volume | Mount trong container | Nội dung |
+|---|---|---|
+| `release-hub-data` | `/app/data` | SQLite database (`database.sqlite`) |
+| `release-hub-uploads` | `/app/uploads` | Các file ZIP bundle OTA đã upload |
+
+---
+
 ## Tài liệu API (API Endpoints)
 
 Tất cả các API yêu cầu xác thực phải gửi kèm Header:

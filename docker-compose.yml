@@ -1,0 +1,28 @@
+services:
+  release-hub-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: release-hub-server
+    restart: unless-stopped
+    ports:
+      - "${PORT:-4000}:4000"
+    environment:
+      - NODE_ENV=production
+      - PORT=4000
+      - DATA_DIR=/app/data
+    volumes:
+      # Persistent SQLite database
+      - release-hub-data:/app/data
+      # Persistent OTA bundle uploads
+      - release-hub-uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:4000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+volumes:
+  release-hub-data:
+  release-hub-uploads:

@@ -34,7 +34,9 @@ export async function getDb(): Promise<Database> {
     return dbInstance;
   }
 
-  const dbPath = path.resolve(__dirname, '../database.sqlite');
+  // Allow overriding data directory via env (used for Docker volume mounting)
+  const DATA_DIR = process.env.DATA_DIR || path.resolve(__dirname, '..');
+  const dbPath = path.join(DATA_DIR, 'database.sqlite');
   
   dbInstance = await open({
     filename: dbPath,
