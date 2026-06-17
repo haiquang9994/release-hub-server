@@ -401,7 +401,7 @@ async function loadTokens() {
     renderTokensTable(data.tokens || []);
   } catch (err) {
     console.error(err);
-    tbody.innerHTML = `<tr><td colspan="3" class="empty-state" style="color:var(--color-danger)">Error loading tokens.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-state" style="color:var(--color-danger)">Error loading tokens.</td></tr>`;
   }
 }
 
@@ -413,17 +413,21 @@ function maskToken(token) {
 function renderTokensTable(tokens) {
   const tbody = document.getElementById('tokens-tbody');
   if (tokens.length === 0) {
-    tbody.innerHTML = `<tr><td colspan="3" class="empty-state">No tokens yet. Click "New Token" to create one.</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="4" class="empty-state">No tokens yet. Click "New Token" to create one.</td></tr>`;
     return;
   }
 
   tbody.innerHTML = '';
   tokens.forEach(t => {
     const tr = document.createElement('tr');
-    const dateStr = new Date(t.createdAt).toLocaleString();
+    const dateStr    = new Date(t.createdAt).toLocaleString();
+    const lastUsed   = t.lastUsedAt
+      ? new Date(t.lastUsedAt).toLocaleString()
+      : '<span style="color:var(--color-text-muted);font-style:italic">Never</span>';
     tr.innerHTML = `
       <td><span class="token-masked">${escapeHtml(maskToken(t.token))}</span></td>
       <td>${dateStr}</td>
+      <td>${lastUsed}</td>
       <td>
         <button class="btn-delete-token" data-id="${t.id}" title="Revoke token">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">

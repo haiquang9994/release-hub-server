@@ -116,6 +116,7 @@ export async function initDb(): Promise<void> {
       userId INTEGER NOT NULL,
       token TEXT NOT NULL UNIQUE,
       createdAt TEXT NOT NULL,
+      lastUsedAt TEXT,
       FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
@@ -139,13 +140,18 @@ export async function createUser(username: string, password: string, role: 'admi
 
 export async function getUserByToken(token: string): Promise<User | null> {
   const db = await getDb();
-  // Only check user_tokens table
   const user = await db.get<User>(
     `SELECT u.* FROM users u
      INNER JOIN user_tokens ut ON u.id = ut.userId
      WHERE ut.token = ?`,
     [token]
   );
+  if (user) {
+    // Stamp last used time (fire-and-forget)
+    db.run('UPDATE user_tokens SET lastUsedAt = ? WHERE token = ?', [
+      new Date().toISOString(), token
+    ]).catch(() => {});
+  }
   return user || null;
 }
 
@@ -160,9 +166,9 @@ export async function createUserToken(userId: number): Promise<string> {
   return token;
 }
 
-export async function getUserTokens(userId: number): Promise<{ id: number, token: string, createdAt: string }[]> {
+export async function getUserTokens(userId: number): Promise<{ id: number, token: string, createdAt: string, lastUsedAt: string | null }[]> {
   const db = await getDb();
-  return db.all('SELECT id, token, createdAt FROM user_tokens WHERE userId = ? ORDER BY createdAt DESC', [userId]);
+  return db.all('SELECT id, token, createdAt, lastUsedAt FROM user_tokens WHERE userId = ? ORDER BY createdAt DESC', [userId]);
 }
 
 export async function deleteUserToken(userId: number, tokenId: number): Promise<boolean> {
