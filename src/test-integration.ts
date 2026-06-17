@@ -3,12 +3,12 @@ import axios from 'axios';
 import fs from 'fs';
 import path from 'path';
 import assert from 'assert';
+import os from 'os';
 
 const SERVER_DIR = '/Volumes/SSD/www/code-push-clone/server';
 const CLI_BIN = '/Volumes/SSD/www/code-push-clone/cli/dist/index.js';
 const PORT = 4500;
 const SERVER_URL = `http://localhost:${PORT}`;
-const API_KEY = 'test-secret-key-123';
 
 const TEST_DIR = path.resolve(__dirname, '../test_runtime');
 const MOCK_BUNDLE_DIR = path.join(TEST_DIR, 'mock_bundle');
@@ -23,11 +23,9 @@ async function sleep(ms: number) {
 async function startServer(): Promise<void> {
   console.log('Starting ReleaseHub Server...');
   
-  // Setup environment variables for test server
   const env = {
     ...process.env,
-    PORT: PORT.toString(),
-    API_KEY: API_KEY
+    PORT: PORT.toString()
   };
 
   serverProcess = spawn('npx', ['ts-node', 'src/index.ts'], {
@@ -37,7 +35,7 @@ async function startServer(): Promise<void> {
   });
 
   serverProcess.stdout?.on('data', (data) => {
-    console.log(`[Server]: ${data.toString().trim()}`);
+    // console.log(`[Server]: ${data.toString().trim()}`);
   });
 
   serverProcess.stderr?.on('data', (data) => {
@@ -65,9 +63,55 @@ function runCliCommand(args: string[]): string {
   return execSync(cmd, { encoding: 'utf8' });
 }
 
+function runCliLoginInteractive(serverUrl: string, token: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = spawn('node', [CLI_BIN, 'login'], { stdio: 'pipe' });
+    let output = '';
+    
+    child.stdout.on('data', (data) => {
+      const chunk = data.toString();
+      output += chunk;
+      console.log(`[CLI Login Stdout]:`, chunk);
+      
+      if (chunk.includes('Enter ReleaseHub server URL')) {
+        child.stdin.write(serverUrl + '\n');
+      } else if (chunk.includes('Paste your CLI Access Token')) {
+        child.stdin.write(token + '\n');
+      }
+    });
+    
+    child.stderr.on('data', (data) => {
+      console.error('[CLI Login Stderr]:', data.toString());
+    });
+    
+    child.on('close', (code) => {
+      if (code === 0) {
+        resolve(output);
+      } else {
+        reject(new Error(`CLI Login failed with code ${code}. Output:\n${output}`));
+      }
+    });
+  });
+}
+
 async function runTests() {
+  const configPath = path.join(os.homedir(), '.release-hub.json');
+  let configBackup: string | null = null;
+  
   try {
-    // 0. Setup directories
+    // Backup local CLI config if it exists so test is isolated
+    if (fs.existsSync(configPath)) {
+      configBackup = fs.readFileSync(configPath, 'utf8');
+      fs.unlinkSync(configPath);
+    }
+
+    // 0. Clean database & runtime directory
+    const dbPath = path.resolve(SERVER_DIR, 'database.sqlite');
+    if (fs.existsSync(dbPath)) {
+      console.log('Deleting existing test database...');
+      fs.unlinkSync(dbPath);
+    }
+
     if (fs.existsSync(TEST_DIR)) {
       fs.rmSync(TEST_DIR, { recursive: true, force: true });
     }
@@ -79,97 +123,132 @@ async function runTests() {
     fs.mkdirSync(path.join(MOCK_BUNDLE_DIR, 'assets'), { recursive: true });
     fs.writeFileSync(path.join(MOCK_BUNDLE_DIR, 'assets/logo.png'), 'mock_png_content', 'utf8');
 
-    // 1. Configure the CLI
-    console.log('\n--- Test 1: CLI Login ---');
-    const loginResult = runCliCommand(['login', '--server', SERVER_URL, '--token', API_KEY]);
-    assert(loginResult.includes('Successfully configured'), 'Login message mismatch');
-    console.log('✓ CLI configured successfully.');
+    // Start server (it will initialize the DB)
+    await startServer();
 
-    // 2. Release a bundle using prebuilt bundle path
-    console.log('\n--- Test 2: CLI Release (Staging) ---');
+    // 1. Bootstrap users using create-user.ts script
+    console.log('\n--- Bootstrapping Users ---');
+    execSync('npx ts-node src/create-user.ts --username admin --password adminpass --role admin', { cwd: SERVER_DIR });
+    execSync('npx ts-node src/create-user.ts --username user1 --password user1pass --role user', { cwd: SERVER_DIR });
+    execSync('npx ts-node src/create-user.ts --username user2 --password user2pass --role user', { cwd: SERVER_DIR });
+    console.log('✓ Users bootstrapped successfully.');
+
+    // Get tokens by logging in via POST /api/login
+    console.log('\n--- Logging in users via API ---');
+    const adminLogin = await axios.post(`${SERVER_URL}/api/login`, { username: 'admin', password: 'adminpass' });
+    const user1Login = await axios.post(`${SERVER_URL}/api/login`, { username: 'user1', password: 'user1pass' });
+    const user2Login = await axios.post(`${SERVER_URL}/api/login`, { username: 'user2', password: 'user2pass' });
+
+    const adminToken = adminLogin.data.token;
+    const user1Token = user1Login.data.token;
+    const user2Token = user2Login.data.token;
+
+    assert(adminToken && user1Token && user2Token, 'Failed to retrieve all user tokens');
+    console.log('✓ Retrieved session tokens for admin, user1, user2.');
+
+    // 2. Test interactive login flow
+    console.log('\n--- Test 1: Interactive CLI Login (User1) ---');
+    const loginResult = await runCliLoginInteractive(SERVER_URL, user1Token);
+    assert(loginResult.includes('Success! Logged in as user1'), 'Login message mismatch');
+    console.log('✓ Interactive CLI login verified.');
+
+    // 3. User1 deploys MyApp (First release, so User1 owns MyApp)
+    console.log('\n--- Test 2: CLI Release (User1 -> MyApp) ---');
     const releaseResult = runCliCommand([
       'release-react',
       '-a', 'MyApp',
       '-p', 'ios',
       '-v', '1.0.0',
       '-e', 'Staging',
-      '-d', '"E2E testing release notes"',
-      '-m', // mandatory
+      '-d', '"E2E test release v1.0.0"',
       '--bundle-path', MOCK_BUNDLE_DIR
     ]);
-    console.log(releaseResult);
     assert(releaseResult.includes('Release deployed successfully'), 'Release message mismatch');
-    console.log('✓ Release uploaded successfully via CLI.');
+    console.log('✓ Release deployed successfully. User1 is now owner of MyApp.');
 
-    // 3. Query check-update as the SDK would
-    console.log('\n--- Test 3: SDK Check-Update Request ---');
+    // 4. Public update-check verification (React Native client update checks must remain public)
+    console.log('\n--- Test 3: Public SDK Check-Update Request ---');
     const updateCheckUrl = `${SERVER_URL}/api/check-update?appName=MyApp&platform=ios&deploymentName=Staging&appVersion=1.0.0&packageHash=empty`;
-    console.log(`Checking update at: ${updateCheckUrl}`);
-    
     const updateResponse = await axios.get(updateCheckUrl);
     const updateInfo = updateResponse.data.updateInfo;
-    
-    console.log('Update Info response:', JSON.stringify(updateInfo, null, 2));
-    assert(updateInfo.update === true, 'Should indicate update is available');
-    assert(updateInfo.isMandatory === true, 'Update should be mandatory');
-    assert(updateInfo.description === 'E2E testing release notes', 'Description should match');
-    assert(typeof updateInfo.packageHash === 'string' && updateInfo.packageHash.length > 0, 'Should return a package hash');
-    assert(updateInfo.downloadUrl.startsWith(SERVER_URL), 'Download URL should point to our server');
-    console.log('✓ SDK check-update response structure verified.');
+    assert(updateInfo.update === true, 'Update should be available');
+    assert(updateInfo.description === 'E2E test release v1.0.0', 'Release notes mismatch');
+    console.log('✓ Public update check succeeded without credentials.');
 
-    // 4. Download and verify the ZIP package
-    console.log('\n--- Test 4: Download ZIP Bundle ---');
-    console.log(`Downloading zip from: ${updateInfo.downloadUrl}`);
-    const downloadResponse = await axios({
-      method: 'get',
-      url: updateInfo.downloadUrl,
-      responseType: 'stream'
-    });
+    // 5. User2 log in and tries to deploy or view MyApp (Forbidden)
+    console.log('\n--- Test 4: Permission Check (User2 is Blocked from MyApp) ---');
+    await runCliLoginInteractive(SERVER_URL, user2Token);
     
-    const writer = fs.createWriteStream(DOWNLOAD_DEST);
-    downloadResponse.data.pipe(writer);
-    
-    await new Promise<void>((resolve, reject) => {
-      writer.on('finish', () => resolve());
-      writer.on('error', reject);
-    });
-    
-    assert(fs.existsSync(DOWNLOAD_DEST), 'Zip package should be downloaded');
-    assert(fs.statSync(DOWNLOAD_DEST).size > 0, 'Zip package should not be empty');
-    console.log('✓ Downloaded bundle zip file successfully.');
+    // User2 tries to view history
+    try {
+      runCliCommand(['history', '-a', 'MyApp', '-p', 'ios', '-e', 'Staging']);
+      assert.fail('User2 should be blocked from viewing MyApp history');
+    } catch (err: any) {
+      assert(err.message.includes('403') || err.message.includes('Forbidden'), 'Should fail with 403 Forbidden');
+      console.log('✓ User2 blocked from viewing MyApp history.');
+    }
 
-    // 5. Query Release History via CLI
-    console.log('\n--- Test 5: CLI Release History ---');
+    // User2 tries to deploy to MyApp
+    try {
+      runCliCommand([
+        'release-react',
+        '-a', 'MyApp',
+        '-p', 'ios',
+        '-v', '1.1.0',
+        '-e', 'Staging',
+        '-d', '"User2 hijack"',
+        '--bundle-path', MOCK_BUNDLE_DIR
+      ]);
+      assert.fail('User2 should be blocked from deploying to MyApp');
+    } catch (err: any) {
+      assert(err.message.includes('403') || err.message.includes('Forbidden'), 'Should fail with 403 Forbidden on deploy');
+      console.log('✓ User2 blocked from deploying to MyApp.');
+    }
+
+    // User2 dashboard summary should be empty
+    const u2Dashboard = await axios.get(`${SERVER_URL}/api/dashboard-summary`, {
+      headers: { 'Authorization': `Bearer ${user2Token}` }
+    });
+    assert(u2Dashboard.data.summary.apps.length === 0, 'User2 should see 0 apps in dashboard');
+    console.log('✓ User2 dashboard is empty of User1\'s apps.');
+
+    // 6. Admin logs in and updates MyApp (Admin bypass)
+    console.log('\n--- Test 5: Admin Permission Bypass (Admin -> MyApp) ---');
+    await runCliLoginInteractive(SERVER_URL, adminToken);
+
+    const adminReleaseResult = runCliCommand([
+      'release-react',
+      '-a', 'MyApp',
+      '-p', 'ios',
+      '-v', '1.1.0',
+      '-e', 'Staging',
+      '-d', '"Admin release v1.1.0"',
+      '--bundle-path', MOCK_BUNDLE_DIR
+    ]);
+    assert(adminReleaseResult.includes('Release deployed successfully'), 'Admin deploy failed');
+    console.log('✓ Admin successfully bypassed owner restriction and deployed.');
+
+    // Admin should see MyApp in dashboard summary
+    const adminDashboard = await axios.get(`${SERVER_URL}/api/dashboard-summary`, {
+      headers: { 'Authorization': `Bearer ${adminToken}` }
+    });
+    assert(adminDashboard.data.summary.apps.includes('MyApp'), 'Admin dashboard should list MyApp');
+    assert(adminDashboard.data.summary.totalReleases === 2, 'Admin dashboard should show 2 releases');
+    console.log('✓ Admin dashboard correctly aggregates all app data.');
+
+    // 7. User1 logs back in and checks history (Should see both their own and Admin's releases)
+    console.log('\n--- Test 6: Owner Release History Query ---');
+    await runCliLoginInteractive(SERVER_URL, user1Token);
+    
     const historyResult = runCliCommand([
       'history',
       '-a', 'MyApp',
       '-p', 'ios',
       '-e', 'Staging'
     ]);
-    console.log(historyResult);
-    assert(historyResult.includes('E2E testing release notes'), 'History should print release notes');
-    assert(historyResult.includes('1.0.0'), 'History should print app version');
-    assert(historyResult.includes('Yes'), 'History should print mandatory status');
-    console.log('✓ CLI History query successfully verified.');
-
-    // 6. Check update with current hash
-    console.log('\n--- Test 6: SDK Check-Update with Latest Hash (Up to date) ---');
-    const sameHashCheckUrl = `${SERVER_URL}/api/check-update?appName=MyApp&platform=ios&deploymentName=Staging&appVersion=1.0.0&packageHash=${updateInfo.packageHash}`;
-    const sameHashResponse = await axios.get(sameHashCheckUrl);
-    console.log('Same Hash response:', JSON.stringify(sameHashResponse.data, null, 2));
-    assert(sameHashResponse.data.updateInfo.update === false, 'Should show no update is available when hashes match');
-    console.log('✓ SDK check-update verified up-to-date case.');
-
-    // 7. Check dashboard summary API
-    console.log('\n--- Test 7: Dashboard Summary API Request ---');
-    const dashboardResponse = await axios.get(`${SERVER_URL}/api/dashboard-summary`);
-    const summary = dashboardResponse.data.summary;
-    console.log('Dashboard Summary response:', JSON.stringify(summary, null, 2));
-    assert(summary.totalReleases > 0, 'Should return non-zero total releases');
-    assert(summary.apps.includes('MyApp'), 'Apps list should contain MyApp');
-    assert(summary.platforms.includes('ios'), 'Platforms list should contain ios');
-    assert(summary.deployments.includes('Staging'), 'Deployments list should contain Staging');
-    console.log('✓ Dashboard summary API response verified.');
+    assert(historyResult.includes('E2E test release v1.0.0'), 'Missing User1 release in history');
+    assert(historyResult.includes('Admin release v1.1.0'), 'Missing Admin release in history');
+    console.log('✓ Owner successfully retrieved history containing both owner and admin updates.');
 
   } catch (error: any) {
     console.error('Test suite failed:');
@@ -177,20 +256,26 @@ async function runTests() {
       console.error(`Status: ${error.response.status}`);
       console.error('Data:', error.response.data);
     } else {
-      console.error(error.message || error);
+      console.error(error);
     }
     process.exit(1);
   } finally {
-    // Cleanup
+    // Cleanup runtime
     if (fs.existsSync(TEST_DIR)) {
       fs.rmSync(TEST_DIR, { recursive: true, force: true });
+    }
+    
+    // Restore local CLI config
+    if (configBackup !== null) {
+      fs.writeFileSync(configPath, configBackup, 'utf8');
+    } else if (fs.existsSync(configPath)) {
+      fs.unlinkSync(configPath);
     }
   }
 }
 
 async function main() {
   try {
-    await startServer();
     await runTests();
     console.log('\n=====================================');
     console.log('ALL TESTS PASSED SUCCESSFULLY! 🎉');

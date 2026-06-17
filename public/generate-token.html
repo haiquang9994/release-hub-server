@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReleaseHub - Generate CLI Token</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .token-generator-container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      width: 100vw;
+      background: radial-gradient(circle at 50% 30%, rgba(138, 43, 226, 0.15) 0%, transparent 60%),
+                  radial-gradient(circle at 10% 80%, rgba(0, 240, 255, 0.08) 0%, transparent 50%);
+      padding: 20px;
+    }
+
+    .generator-card {
+      width: 100%;
+      max-width: 500px;
+      background: var(--bg-glass);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--border-glass);
+      border-radius: 24px;
+      padding: 40px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4), var(--glow-primary);
+      text-align: center;
+    }
+
+    .generator-header {
+      margin-bottom: 30px;
+    }
+
+    .generator-header .brand-logo {
+      width: 48px;
+      height: 48px;
+      color: var(--color-secondary);
+      filter: drop-shadow(0 0 12px rgba(0, 240, 255, 0.5));
+      margin-bottom: 16px;
+    }
+
+    .generator-header h2 {
+      font-size: 1.6rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      background: linear-gradient(90deg, #ffffff, #a5b4fc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .generator-header p {
+      color: var(--color-text-muted);
+      font-size: 0.95rem;
+    }
+
+    .user-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-glass);
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 0.85rem;
+      margin-bottom: 24px;
+      color: var(--color-text-main);
+    }
+
+    .user-badge svg {
+      width: 16px;
+      height: 16px;
+      color: var(--color-secondary);
+    }
+
+    .token-display-box {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid var(--border-glass);
+      border-radius: 14px;
+      padding: 16px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      text-align: left;
+      transition: var(--transition);
+    }
+
+    .token-display-box.highlight {
+      border-color: var(--color-secondary);
+      box-shadow: var(--glow-secondary);
+    }
+
+    .token-display-box label {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--color-text-muted);
+      font-weight: 600;
+    }
+
+    .token-value-wrapper {
+      display: flex;
+      gap: 10px;
+    }
+
+    .token-input {
+      flex-grow: 1;
+      background: transparent;
+      border: none;
+      color: var(--color-secondary);
+      font-family: monospace;
+      font-size: 0.95rem;
+      outline: none;
+      width: 100%;
+      text-shadow: 0 0 5px rgba(0, 240, 255, 0.2);
+    }
+
+    .copy-btn-large {
+      background: linear-gradient(135deg, var(--color-secondary) 0%, #00a8ff 100%);
+      border: none;
+      color: #050508;
+      padding: 8px 16px;
+      border-radius: 8px;
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .copy-btn-large:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 4px 12px rgba(0, 240, 255, 0.4);
+    }
+
+    .copy-btn-large svg {
+      width: 14px;
+      height: 14px;
+    }
+
+    .instruction-step {
+      background: rgba(138, 43, 226, 0.05);
+      border: 1px solid rgba(138, 43, 226, 0.15);
+      border-radius: 12px;
+      padding: 14px 16px;
+      font-size: 0.9rem;
+      color: var(--color-text-main);
+      margin-bottom: 24px;
+      line-height: 1.5;
+      text-align: left;
+    }
+
+    .instruction-step strong {
+      color: var(--color-primary);
+    }
+
+    .buttons-row {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .action-btn-primary {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      background: linear-gradient(135deg, var(--color-primary) 0%, #6366f1 100%);
+      border: none;
+      color: white;
+      padding: 14px;
+      border-radius: 12px;
+      font-family: var(--font-sans);
+      font-size: 0.95rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: var(--transition);
+      width: 100%;
+    }
+
+    .action-btn-primary:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 8px 20px rgba(138, 43, 226, 0.4);
+    }
+
+    .action-btn-secondary {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: 1px solid var(--border-glass);
+      color: var(--color-text-muted);
+      padding: 12px;
+      border-radius: 12px;
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+      transition: var(--transition);
+      width: 100%;
+    }
+
+    .action-btn-secondary:hover {
+      border-color: var(--color-text-muted);
+      color: var(--color-text-main);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .loading-spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-radius: 50%;
+      border-top-color: var(--color-secondary);
+      animation: spin 1s ease-in-out infinite;
+      margin-bottom: 16px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .state-panel {
+      display: none;
+    }
+
+    .state-panel.active {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="token-generator-container">
+    <div class="generator-card">
+      <div class="generator-header">
+        <svg class="brand-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <h2>ReleaseHub Access Token</h2>
+        <p>Generate a new access token for CLI authentication</p>
+      </div>
+
+      <!-- State: Loading -->
+      <div id="state-loading" class="state-panel active">
+        <div class="loading-spinner"></div>
+        <p style="color: var(--color-text-muted)">Verifying session and generating token...</p>
+      </div>
+
+      <!-- State: Ready / Success -->
+      <div id="state-ready" class="state-panel">
+        <div class="user-badge">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <span id="user-display">username</span>
+        </div>
+
+        <div class="token-display-box" id="token-box">
+          <label>Generated CLI Token</label>
+          <div class="token-value-wrapper">
+            <input type="text" id="token-input" class="token-input" readonly value="">
+            <button class="copy-btn-large" id="copy-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+              </svg>
+              Copy
+            </button>
+          </div>
+        </div>
+
+        <div class="instruction-step">
+          👉 <strong>How to use:</strong> Copy the token above and paste it back into your <strong>CLI terminal prompt</strong> to complete the login process.
+        </div>
+
+        <div class="buttons-row">
+          <button class="action-btn-primary" id="generate-btn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width: 18px; height: 18px;"><path d="M21.5 2v6h-6M21.34 15.57a10 10 0 1 1-.57-8.38l5.67-5.67"/></svg>
+            Generate Another Token
+          </button>
+          <a href="index.html" class="action-btn-secondary">Go to Dashboard</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="toast">Token copied to clipboard!</div>
+
+  <script>
+    const userToken = localStorage.getItem('token');
+    const stateLoading = document.getElementById('state-loading');
+    const stateReady = document.getElementById('state-ready');
+    const userDisplay = document.getElementById('user-display');
+    const tokenInput = document.getElementById('token-input');
+    const tokenBox = document.getElementById('token-box');
+    const copyBtn = document.getElementById('copy-btn');
+    const generateBtn = document.getElementById('generate-btn');
+    const toast = document.getElementById('toast');
+
+    async function init() {
+      // 1. If not logged in, redirect to login
+      if (!userToken) {
+        window.location.href = 'index.html?redirect=generate-token.html';
+        return;
+      }
+
+      try {
+        // 2. Verify token
+        const meRes = await fetch('/api/me', {
+          headers: { 'Authorization': `Bearer ${userToken}` }
+        });
+
+        if (!meRes.ok) {
+          localStorage.removeItem('token');
+          window.location.href = 'index.html?redirect=generate-token.html';
+          return;
+        }
+
+        const meData = await meRes.json();
+        userDisplay.textContent = `${meData.user.username} (${meData.user.role})`;
+
+        // 3. Generate token
+        await generateNewToken();
+
+        // 4. Show Ready state
+        stateLoading.classList.remove('active');
+        stateReady.classList.add('active');
+
+      } catch (err) {
+        console.error('Initialization failed:', err);
+        localStorage.removeItem('token');
+        window.location.href = 'index.html?redirect=generate-token.html';
+      }
+    }
+
+    async function generateNewToken() {
+      try {
+        tokenInput.value = 'Generating...';
+        tokenBox.classList.remove('highlight');
+
+        const res = await fetch('/api/tokens', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${userToken}`,
+            'Content-Type': 'application/json'
+          }
+        });
+
+        if (!res.ok) {
+          throw new Error('Failed to generate token');
+        }
+
+        const data = await res.json();
+        tokenInput.value = data.token;
+        tokenBox.classList.add('highlight');
+      } catch (err) {
+        console.error(err);
+        tokenInput.value = 'Error generating token';
+      }
+    }
+
+    // Copy to clipboard
+    copyBtn.addEventListener('click', () => {
+      if (!tokenInput.value || tokenInput.value.startsWith('Error') || tokenInput.value.startsWith('Generating')) {
+        return;
+      }
+      navigator.clipboard.writeText(tokenInput.value).then(() => {
+        toast.textContent = "Token copied to clipboard!";
+        toast.classList.add('show');
+        setTimeout(() => {
+          toast.classList.remove('show');
+        }, 2500);
+      }).catch(err => {
+        console.error('Copy failed:', err);
+      });
+    });
+
+    // Generate button click
+    generateBtn.addEventListener('click', async () => {
+      generateBtn.disabled = true;
+      const originalText = generateBtn.innerHTML;
+      generateBtn.innerHTML = 'Generating...';
+      await generateNewToken();
+      generateBtn.disabled = false;
+      generateBtn.innerHTML = originalText;
+    });
+
+    window.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>

@@ -25,6 +25,27 @@
           Dashboard
         </a>
       </nav>
+      <!-- User Profile / Auth Details -->
+      <div class="user-profile-panel" id="user-profile-panel" style="display: none;">
+        <div class="user-info">
+          <svg class="user-avatar" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+          <div class="user-meta">
+            <div class="username-display" id="username-display">Username</div>
+            <div class="role-badge" id="role-badge">Role</div>
+          </div>
+        </div>
+        <a href="generate-token.html" class="generate-token-btn" id="generate-token-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:16px;height:16px"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><line x1="12" y1="15" x2="12" y2="17"/></svg>
+          Generate CLI Token
+        </a>
+        <button class="logout-btn" id="logout-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9"/></svg>
+          Sign Out
+        </button>
+      </div>
       <div class="sidebar-footer">
         <div class="status-indicator"></div>
         <span>Server Online</span>
@@ -132,6 +153,34 @@
 
   <!-- Toast Notification -->
   <div id="toast" class="toast">Hash copied to clipboard!</div>
+
+  <!-- Login Overlay -->
+  <div class="login-overlay" id="login-overlay" style="display: none;">
+    <div class="login-card">
+      <div class="login-header">
+        <svg class="brand-logo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+        </svg>
+        <h2>ReleaseHub Sign In</h2>
+        <p>Enter your account credentials to access the console</p>
+      </div>
+      <form id="login-form" class="login-form">
+        <div class="form-group">
+          <label for="login-username">Username</label>
+          <input type="text" id="login-username" placeholder="Enter username" required autocomplete="username">
+        </div>
+        <div class="form-group">
+          <label for="login-password">Password</label>
+          <input type="password" id="login-password" placeholder="Enter password" required autocomplete="current-password">
+        </div>
+        <div class="error-msg" id="login-error-msg" style="display: none;">Invalid username or password.</div>
+        <button type="submit" class="submit-btn" id="login-submit-btn">
+          Sign In
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+        </button>
+      </form>
+    </div>
+  </div>
 
   <script src="app.js"></script>
 </body>

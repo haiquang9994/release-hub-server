@@ -3,7 +3,7 @@ import crypto from 'crypto';
 import fs from 'fs';
 import path from 'path';
 import semver from 'semver';
-import { getReleases, insertRelease, Release } from '../database';
+import { getReleases, insertRelease, Release, isUserAuthorizedForApp, authorizeUserForApp } from '../database';
 
 // Helper to calculate SHA256 hash of a file
 function calculateFileHash(filePath: string): Promise<string> {
@@ -37,8 +37,24 @@ export async function deployRelease(req: Request, res: Response): Promise<void> 
       return;
     }
 
+    // Verify user authorization for this app
+    const user = (req as any).user;
+    if (!user) {
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      res.status(401).json({ error: 'Unauthorized: User context missing' });
+      return;
+    }
+
+    const isAuthorized = await isUserAuthorizedForApp(user.id, appName);
+    if (!isAuthorized) {
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
+      res.status(403).json({ error: `Forbidden: You do not have permission to manage app '${appName}'` });
+      return;
+    }
+
     // Verify semver target
     if (!semver.validRange(appVersion)) {
+      if (fs.existsSync(file.path)) fs.unlinkSync(file.path);
       res.status(400).json({ error: 'Target appVersion must be a valid semver expression (e.g. 1.0.0, ^1.0.0)' });
       return;
     }
@@ -67,10 +83,14 @@ export async function deployRelease(req: Request, res: Response): Promise<void> 
       downloadPath: `/uploads/${newFileName}`,
       description: description || '',
       isMandatory: isMandatory === 'true' || isMandatory === '1' || isMandatory === true ? 1 : 0,
-      size: file.size
+      size: file.size,
+      userId: user.id
     };
 
     const id = await insertRelease(releaseData);
+    
+    // Automatically authorize the user for the app (no-op if already mapped)
+    await authorizeUserForApp(user.id, appName);
 
     res.status(201).json({
       message: 'Release deployed successfully',
@@ -165,6 +185,19 @@ export async function listReleases(req: Request, res: Response): Promise<void> {
     const { appName, platform, deploymentName } = req.query;
     if (!appName || !platform || !deploymentName) {
       res.status(400).json({ error: 'Missing parameters' });
+      return;
+    }
+
+    const user = (req as any).user;
+    if (!user) {
+      res.status(401).json({ error: 'Unauthorized: User context missing' });
+      return;
+    }
+
+    // Verify user authorization for this app
+    const isAuthorized = await isUserAuthorizedForApp(user.id, String(appName));
+    if (!isAuthorized) {
+      res.status(403).json({ error: `Forbidden: You do not have permission to access app '${appName}'` });
       return;
     }
 

@@ -7,6 +7,9 @@ let summaryData = {
   recentReleases: []
 };
 
+let userToken = localStorage.getItem('token');
+let currentUser = null;
+
 // Selectors
 const statApps = document.getElementById('stat-apps');
 const statReleases = document.getElementById('stat-releases');
@@ -22,8 +25,40 @@ const toast = document.getElementById('toast');
 
 // Initialize Dashboard
 async function init() {
+  const params = new URLSearchParams(window.location.search);
+  const redirect = params.get('redirect');
+
+  if (!userToken) {
+    showLoginOverlay();
+    return;
+  }
+
   try {
-    const res = await fetch('/api/dashboard-summary');
+    // Verify token and fetch user details
+    const meRes = await fetch('/api/me', {
+      headers: { 'Authorization': `Bearer ${userToken}` }
+    });
+    
+    if (!meRes.ok) {
+      logout();
+      return;
+    }
+    
+    const meData = await meRes.json();
+    currentUser = meData.user;
+    
+    if (redirect) {
+      window.location.href = redirect;
+      return;
+    }
+    
+    hideLoginOverlay();
+    showUserProfile();
+
+    // Fetch dashboard summary
+    const res = await fetch('/api/dashboard-summary', {
+      headers: { 'Authorization': `Bearer ${userToken}` }
+    });
     if (!res.ok) throw new Error('Failed to fetch summary');
     
     const data = await res.json();
@@ -32,6 +67,7 @@ async function init() {
     updateStats();
     populateDropdowns();
     setupListeners();
+    setupAuthListeners();
   } catch (error) {
     console.error('Initialization failed:', error);
   }
@@ -46,6 +82,11 @@ function updateStats() {
 
 // Populate dropdown filters dynamically
 function populateDropdowns() {
+  // Clear existing options
+  appSelect.innerHTML = '<option value="">Select App</option>';
+  platformSelect.innerHTML = '<option value="">Select Platform</option>';
+  deploymentSelect.innerHTML = '<option value="">Select Deployment</option>';
+
   // Populate Apps
   summaryData.apps.forEach(app => {
     const opt = document.createElement('option');
@@ -90,6 +131,10 @@ function populateDropdowns() {
 
 // Listen to filter selection changes
 function setupListeners() {
+  appSelect.removeEventListener('change', fetchReleases);
+  platformSelect.removeEventListener('change', fetchReleases);
+  deploymentSelect.removeEventListener('change', fetchReleases);
+  
   appSelect.addEventListener('change', fetchReleases);
   platformSelect.addEventListener('change', fetchReleases);
   deploymentSelect.addEventListener('change', fetchReleases);
@@ -119,7 +164,9 @@ async function fetchReleases() {
     `;
 
     const url = `/api/releases?appName=${encodeURIComponent(app)}&platform=${platform}&deploymentName=${deployment}`;
-    const res = await fetch(url);
+    const res = await fetch(url, {
+      headers: { 'Authorization': `Bearer ${userToken}` }
+    });
     if (!res.ok) throw new Error('Failed to fetch releases');
 
     const data = await res.json();
@@ -193,6 +240,7 @@ function renderReleasesTable(releases) {
 // Copy package SHA256 hash to clipboard
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(() => {
+    toast.textContent = "Copied to clipboard!";
     toast.classList.add('show');
     setTimeout(() => {
       toast.classList.remove('show');
@@ -219,6 +267,102 @@ function escapeHtml(unsafe) {
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&#039;");
+}
+
+// Auth UI helpers
+function showLoginOverlay() {
+  const loginOverlay = document.getElementById('login-overlay');
+  loginOverlay.style.display = 'flex';
+  
+  const loginForm = document.getElementById('login-form');
+  loginForm.onsubmit = async (e) => {
+    e.preventDefault();
+    const username = document.getElementById('login-username').value;
+    const password = document.getElementById('login-password').value;
+    const errorMsg = document.getElementById('login-error-msg');
+    
+    try {
+      const res = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || 'Login failed');
+      }
+      
+      const data = await res.json();
+      localStorage.setItem('token', data.token);
+      userToken = data.token;
+      
+      errorMsg.style.display = 'none';
+      
+      const params = new URLSearchParams(window.location.search);
+      const redirect = params.get('redirect');
+      if (redirect) {
+        window.location.href = redirect;
+      } else {
+        init();
+      }
+    } catch (err) {
+      errorMsg.textContent = err.message || 'Invalid username or password.';
+      errorMsg.style.display = 'block';
+    }
+  };
+}
+
+function hideLoginOverlay() {
+  const loginOverlay = document.getElementById('login-overlay');
+  loginOverlay.style.display = 'none';
+}
+
+function showUserProfile() {
+  const userProfilePanel = document.getElementById('user-profile-panel');
+  const usernameDisplay = document.getElementById('username-display');
+  const roleBadge = document.getElementById('role-badge');
+  
+  usernameDisplay.textContent = currentUser.username;
+  roleBadge.textContent = currentUser.role;
+  
+  userProfilePanel.style.display = 'flex';
+}
+
+function setupAuthListeners() {
+  const logoutBtn = document.getElementById('logout-btn');
+
+  const newLogoutBtn = logoutBtn.cloneNode(true);
+  logoutBtn.parentNode.replaceChild(newLogoutBtn, logoutBtn);
+  newLogoutBtn.addEventListener('click', logout);
+}
+
+function logout() {
+  localStorage.removeItem('token');
+  userToken = null;
+  currentUser = null;
+  
+  // Hide user profile
+  const userProfilePanel = document.getElementById('user-profile-panel');
+  userProfilePanel.style.display = 'none';
+  
+  // Reset select elements
+  appSelect.innerHTML = '<option value="">Select App</option>';
+  platformSelect.innerHTML = '<option value="">Select Platform</option>';
+  deploymentSelect.innerHTML = '<option value="">Select Deployment</option>';
+  releasesTbody.innerHTML = `
+    <tr>
+      <td colspan="7" class="empty-state">Please select Application, Platform, and Deployment to view releases.</td>
+    </tr>
+  `;
+  resultsCount.textContent = '0 releases found';
+  
+  // Reset statistics cards
+  statApps.textContent = '0';
+  statReleases.textContent = '0';
+  statPlatforms.textContent = '0';
+  
+  showLoginOverlay();
 }
 
 // Run init on load

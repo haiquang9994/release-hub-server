@@ -6,7 +6,8 @@ import fs from 'fs';
 import dotenv from 'dotenv';
 import { checkUpdate, deployRelease, listReleases } from './controllers/releaseController';
 import { getDashboardSummary } from './controllers/dashboardController';
-import { initDb } from './database';
+import { initDb, getUserByToken, getUserByUsername, createUserToken } from './database';
+import { verifyPassword } from './utils/auth';
 
 // Load environment variables
 dotenv.config();
@@ -16,11 +17,11 @@ const PORT = process.env.PORT || 4000;
 const API_KEY = process.env.API_KEY || 'release-hub-secret-key';
 
 // Ensure uploads and public directories exist
-const uploadsDir = path.resolve(__dirname, '../../uploads');
+const uploadsDir = path.resolve(__dirname, '../uploads');
 if (!fs.existsSync(uploadsDir)) {
   fs.mkdirSync(uploadsDir, { recursive: true });
 }
-const publicDir = path.resolve(__dirname, '../../public');
+const publicDir = path.resolve(__dirname, '../public');
 if (!fs.existsSync(publicDir)) {
   fs.mkdirSync(publicDir, { recursive: true });
 }
@@ -41,31 +42,38 @@ const upload = multer({ storage });
 app.use(cors());
 app.use(express.json());
 
-// API Key Authentication Middleware
-const authenticate = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+// Token-based Multi-user Authentication Middleware
+const authenticate = async (req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.log(`[API] ${req.method} ${req.originalUrl}`);
   
-  // Allow read-only endpoints without auth (dashboard and client app checks)
+  // Allow public check-update and login endpoints without auth
   if (
-    req.method === 'GET' && 
-    (req.path === '/check-update' || req.path === '/dashboard-summary' || req.path === '/releases')
+    (req.method === 'GET' && req.path === '/check-update') ||
+    (req.method === 'POST' && req.path === '/login')
   ) {
     return next();
   }
 
-  const authHeader = req.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
-    return;
-  }
+  try {
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      res.status(401).json({ error: 'Unauthorized: Missing or invalid token' });
+      return;
+    }
 
-  const token = authHeader.split(' ')[1];
-  if (token !== API_KEY) {
-    res.status(401).json({ error: 'Unauthorized: Invalid token' });
-    return;
-  }
+    const token = authHeader.split(' ')[1];
+    const user = await getUserByToken(token);
+    if (!user) {
+      res.status(401).json({ error: 'Unauthorized: Invalid token' });
+      return;
+    }
 
-  next();
+    (req as any).user = user;
+    next();
+  } catch (error) {
+    console.error('Auth middleware error:', error);
+    res.status(500).json({ error: 'Internal server error during authentication' });
+  }
 };
 
 // Apply auth to all API routes
@@ -78,6 +86,74 @@ app.use('/uploads', express.static(uploadsDir));
 app.use(express.static(publicDir));
 
 // Routes
+app.post('/api/login', async (req, res) => {
+  try {
+    const { username, password } = req.body;
+    if (!username || !password) {
+      res.status(400).json({ error: 'Username and password are required' });
+      return;
+    }
+
+    const user = await getUserByUsername(username);
+    if (!user) {
+      res.status(401).json({ error: 'Invalid username or password' });
+      return;
+    }
+
+    const isMatch = verifyPassword(password, user.salt, user.passwordHash);
+    if (!isMatch) {
+      res.status(401).json({ error: 'Invalid username or password' });
+      return;
+    }
+
+    // Generate a fresh session token on every login
+    const sessionToken = await createUserToken(user.id);
+
+    res.json({
+      message: 'Login successful',
+      token: sessionToken,
+      user: {
+        id: user.id,
+        username: user.username,
+        role: user.role
+      }
+    });
+  } catch (error: any) {
+    console.error('Login error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+app.get('/api/me', (req, res) => {
+  const user = (req as any).user;
+  if (!user) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  res.json({
+    user: {
+      id: user.id,
+      username: user.username,
+      role: user.role
+    }
+  });
+});
+
+app.post('/api/tokens', async (req, res) => {
+  const user = (req as any).user;
+  if (!user) {
+    res.status(401).json({ error: 'Unauthorized: User context missing' });
+    return;
+  }
+  try {
+    const token = await createUserToken(user.id);
+    res.status(201).json({ token });
+  } catch (error: any) {
+    console.error('Token generation error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 app.post('/api/deploy', upload.single('package'), deployRelease);
 app.get('/api/check-update', checkUpdate);
 app.get('/api/releases', listReleases);

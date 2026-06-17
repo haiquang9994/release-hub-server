@@ -6,7 +6,9 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "ts-node src/index.ts"
+    "dev": "ts-node src/index.ts",
+    "create-user": "ts-node src/create-user.ts",
+    "delete-user": "ts-node src/delete-user.ts"
   },
   "dependencies": {
     "cors": "^2.8.5",
