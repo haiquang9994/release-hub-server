@@ -14,7 +14,6 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 4000;
-const API_KEY = process.env.API_KEY || 'release-hub-secret-key';
 
 // Resolve data directories – override via DATA_DIR env for Docker volumes
 const DATA_DIR = process.env.DATA_DIR || path.resolve(__dirname, '..');
