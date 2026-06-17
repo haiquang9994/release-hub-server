@@ -6,7 +6,7 @@ import fs from 'fs';
 import dotenv from 'dotenv';
 import { checkUpdate, deployRelease, listReleases } from './controllers/releaseController';
 import { getDashboardSummary } from './controllers/dashboardController';
-import { initDb, getUserByToken, getUserByUsername, createUserToken } from './database';
+import { initDb, getUserByToken, getUserByUsername, createUserToken, getUserTokens, deleteUserToken } from './database';
 import { verifyPassword } from './utils/auth';
 
 // Load environment variables
@@ -139,6 +139,20 @@ app.get('/api/me', (req, res) => {
   });
 });
 
+app.get('/api/tokens', async (req, res) => {
+  const user = (req as any).user;
+  if (!user) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  try {
+    const tokens = await getUserTokens(user.id);
+    res.json({ tokens });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
 app.post('/api/tokens', async (req, res) => {
   const user = (req as any).user;
   if (!user) {
@@ -150,6 +164,29 @@ app.post('/api/tokens', async (req, res) => {
     res.status(201).json({ token });
   } catch (error: any) {
     console.error('Token generation error:', error);
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+});
+
+app.delete('/api/tokens/:id', async (req, res) => {
+  const user = (req as any).user;
+  if (!user) {
+    res.status(401).json({ error: 'Unauthorized' });
+    return;
+  }
+  try {
+    const tokenId = parseInt(req.params.id, 10);
+    if (isNaN(tokenId)) {
+      res.status(400).json({ error: 'Invalid token ID' });
+      return;
+    }
+    const deleted = await deleteUserToken(user.id, tokenId);
+    if (!deleted) {
+      res.status(404).json({ error: 'Token not found' });
+      return;
+    }
+    res.json({ message: 'Token deleted' });
+  } catch (error: any) {
     res.status(500).json({ error: error.message || 'Internal server error' });
   }
 });

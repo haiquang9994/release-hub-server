@@ -20,9 +20,13 @@
         <span>ReleaseHub</span>
       </div>
       <nav class="nav-menu">
-        <a href="#" class="nav-item active">
+        <a href="#" class="nav-item active" id="nav-dashboard" onclick="showSection('dashboard')">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
           Dashboard
+        </a>
+        <a href="#" class="nav-item" id="nav-tokens" onclick="showSection('tokens')">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/><line x1="12" y1="15" x2="12" y2="17"/></svg>
+          My Tokens
         </a>
       </nav>
       <!-- User Profile / Auth Details -->
@@ -54,6 +58,8 @@
 
     <!-- Main Content Area -->
     <main class="main-content">
+      <!-- Dashboard Section -->
+      <div id="section-dashboard">
       <!-- Header -->
       <header class="top-header">
         <div class="header-title">
@@ -143,6 +149,43 @@
                 <tr>
                   <td colspan="7" class="empty-state">Please select Application, Platform, and Deployment to view releases.</td>
                 </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+      </div>
+      <!-- Token Management Section -->
+      <div id="section-tokens" class="section-panel" style="display:none">
+        <section class="table-card">
+          <div class="table-header">
+            <h2>My Access Tokens</h2>
+            <button class="btn-create-token" id="create-token-btn">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+              New Token
+            </button>
+          </div>
+          <div id="tokens-new-banner" class="tokens-new-banner" style="display:none">
+            <div class="token-banner-label">New token (copy now — shown only once):</div>
+            <div class="token-banner-value-row">
+              <input type="text" id="tokens-new-value" class="token-banner-input" readonly>
+              <button class="btn-copy-token" id="tokens-copy-btn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:14px;height:14px"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                Copy
+              </button>
+            </div>
+          </div>
+          <div class="table-container">
+            <table class="releases-table">
+              <thead>
+                <tr>
+                  <th>Token (masked)</th>
+                  <th>Created</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="tokens-tbody">
+                <tr><td colspan="3" class="empty-state">Loading tokens...</td></tr>
               </tbody>
             </table>
           </div>

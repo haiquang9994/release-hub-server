@@ -68,6 +68,7 @@ async function init() {
     populateDropdowns();
     setupListeners();
     setupAuthListeners();
+    setupTokenListeners();
   } catch (error) {
     console.error('Initialization failed:', error);
   }
@@ -240,11 +241,7 @@ function renderReleasesTable(releases) {
 // Copy package SHA256 hash to clipboard
 function copyToClipboard(text) {
   navigator.clipboard.writeText(text).then(() => {
-    toast.textContent = "Copied to clipboard!";
-    toast.classList.add('show');
-    setTimeout(() => {
-      toast.classList.remove('show');
-    }, 2500);
+    showToast('Copied to clipboard!');
   }).catch(err => {
     console.error('Copy failed:', err);
   });
@@ -341,8 +338,9 @@ function logout() {
   localStorage.removeItem('token');
   userToken = null;
   currentUser = null;
-  
-  // Hide user profile
+
+  // Reset to dashboard section
+  showSection('dashboard');
   const userProfilePanel = document.getElementById('user-profile-panel');
   userProfilePanel.style.display = 'none';
   
@@ -363,6 +361,186 @@ function logout() {
   statPlatforms.textContent = '0';
   
   showLoginOverlay();
+}
+
+// ─── Section Navigation ───────────────────────────────
+function showSection(name) {
+  // Update nav items
+  document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+  const navEl = document.getElementById(`nav-${name}`);
+  if (navEl) navEl.classList.add('active');
+
+  const dashboardSection = document.getElementById('section-dashboard');
+  const tokensSection    = document.getElementById('section-tokens');
+
+  if (name === 'dashboard') {
+    if (dashboardSection) dashboardSection.style.display = '';
+    if (tokensSection) tokensSection.style.display = 'none';
+  } else if (name === 'tokens') {
+    if (dashboardSection) dashboardSection.style.display = 'none';
+    if (tokensSection) tokensSection.style.display = '';
+    loadTokens();
+  }
+}
+
+// ─── Token Management ────────────────────────────────
+
+async function loadTokens() {
+  const tbody = document.getElementById('tokens-tbody');
+  if (!tbody) return;
+
+  tbody.innerHTML = `<tr><td colspan="3" class="empty-state">Loading...</td></tr>`;
+  document.getElementById('tokens-new-banner').style.display = 'none';
+
+  try {
+    const res = await fetch('/api/tokens', {
+      headers: { 'Authorization': `Bearer ${userToken}` }
+    });
+    if (!res.ok) throw new Error('Failed to fetch tokens');
+    const data = await res.json();
+    renderTokensTable(data.tokens || []);
+  } catch (err) {
+    console.error(err);
+    tbody.innerHTML = `<tr><td colspan="3" class="empty-state" style="color:var(--color-danger)">Error loading tokens.</td></tr>`;
+  }
+}
+
+function maskToken(token) {
+  if (!token || token.length < 10) return '••••••••••••';
+  return token.substring(0, 6) + '••••••••••••' + token.substring(token.length - 4);
+}
+
+function renderTokensTable(tokens) {
+  const tbody = document.getElementById('tokens-tbody');
+  if (tokens.length === 0) {
+    tbody.innerHTML = `<tr><td colspan="3" class="empty-state">No tokens yet. Click "New Token" to create one.</td></tr>`;
+    return;
+  }
+
+  tbody.innerHTML = '';
+  tokens.forEach(t => {
+    const tr = document.createElement('tr');
+    const dateStr = new Date(t.createdAt).toLocaleString();
+    tr.innerHTML = `
+      <td><span class="token-masked">${escapeHtml(maskToken(t.token))}</span></td>
+      <td>${dateStr}</td>
+      <td>
+        <button class="btn-delete-token" data-id="${t.id}" title="Revoke token">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+            <path d="M10 11v6"/><path d="M14 11v6"/>
+            <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+          </svg>
+        </button>
+      </td>
+    `;
+    tr.querySelector('.btn-delete-token').addEventListener('click', () => confirmDeleteToken(t.id));
+    tbody.appendChild(tr);
+  });
+}
+
+async function createNewToken() {
+  const btn = document.getElementById('create-token-btn');
+  btn.disabled = true;
+  btn.textContent = 'Creating...';
+
+  try {
+    const res = await fetch('/api/tokens', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${userToken}`, 'Content-Type': 'application/json' }
+    });
+    if (!res.ok) throw new Error('Failed to create token');
+    const data = await res.json();
+
+    // Show the new token banner (one-time reveal)
+    const banner = document.getElementById('tokens-new-banner');
+    const input  = document.getElementById('tokens-new-value');
+    input.value = data.token;
+    banner.style.display = 'block';
+
+    // Reload the list
+    await loadTokens();
+    // Re-show banner (loadTokens hides it)
+    banner.style.display = 'block';
+    input.value = data.token;
+
+    showToast('Token created! Copy it now — it won\'t be shown again.');
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to create token.', true);
+  } finally {
+    btn.disabled = false;
+    btn.innerHTML = `
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:15px;height:15px"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+      New Token`;
+  }
+}
+
+function confirmDeleteToken(tokenId) {
+  const overlay = document.createElement('div');
+  overlay.className = 'confirm-modal-overlay';
+  overlay.innerHTML = `
+    <div class="confirm-modal">
+      <h3>Revoke Token?</h3>
+      <p>This token will be permanently deleted and any CLI using it will lose access immediately.</p>
+      <div class="confirm-modal-actions">
+        <button class="btn-modal-cancel" id="modal-cancel-btn">Cancel</button>
+        <button class="btn-modal-delete" id="modal-delete-btn">Revoke</button>
+      </div>
+    </div>
+  `;
+  document.body.appendChild(overlay);
+
+  overlay.querySelector('#modal-cancel-btn').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('#modal-delete-btn').addEventListener('click', async () => {
+    overlay.remove();
+    await deleteToken(tokenId);
+  });
+}
+
+async function deleteToken(tokenId) {
+  try {
+    const res = await fetch(`/api/tokens/${tokenId}`, {
+      method: 'DELETE',
+      headers: { 'Authorization': `Bearer ${userToken}` }
+    });
+    if (!res.ok) throw new Error('Delete failed');
+    showToast('Token revoked.');
+    loadTokens();
+  } catch (err) {
+    console.error(err);
+    showToast('Failed to revoke token.', true);
+  }
+}
+
+function showToast(message, isError = false) {
+  toast.textContent = message;
+  toast.style.background = isError ? 'var(--color-danger)' : 'var(--color-success)';
+  toast.style.boxShadow  = isError
+    ? '0 10px 30px rgba(239,68,68,0.3)'
+    : '0 10px 30px rgba(16,185,129,0.3)';
+  toast.classList.add('show');
+  setTimeout(() => toast.classList.remove('show'), 2800);
+}
+
+function setupTokenListeners() {
+  const createBtn = document.getElementById('create-token-btn');
+  if (createBtn) {
+    const newBtn = createBtn.cloneNode(true);
+    createBtn.parentNode.replaceChild(newBtn, createBtn);
+    newBtn.addEventListener('click', createNewToken);
+  }
+
+  const copyBtn = document.getElementById('tokens-copy-btn');
+  if (copyBtn) {
+    const newCopyBtn = copyBtn.cloneNode(true);
+    copyBtn.parentNode.replaceChild(newCopyBtn, copyBtn);
+    newCopyBtn.addEventListener('click', () => {
+      const val = document.getElementById('tokens-new-value').value;
+      if (!val) return;
+      navigator.clipboard.writeText(val).then(() => showToast('Token copied!'));
+    });
+  }
 }
 
 // Run init on load

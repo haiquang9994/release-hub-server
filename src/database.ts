@@ -160,6 +160,17 @@ export async function createUserToken(userId: number): Promise<string> {
   return token;
 }
 
+export async function getUserTokens(userId: number): Promise<{ id: number, token: string, createdAt: string }[]> {
+  const db = await getDb();
+  return db.all('SELECT id, token, createdAt FROM user_tokens WHERE userId = ? ORDER BY createdAt DESC', [userId]);
+}
+
+export async function deleteUserToken(userId: number, tokenId: number): Promise<boolean> {
+  const db = await getDb();
+  const result = await db.run('DELETE FROM user_tokens WHERE id = ? AND userId = ?', [tokenId, userId]);
+  return (result.changes || 0) > 0;
+}
+
 export async function getUserByUsername(username: string): Promise<User | null> {
   const db = await getDb();
   const user = await db.get<User>('SELECT * FROM users WHERE username = ?', [username.trim().toLowerCase()]);

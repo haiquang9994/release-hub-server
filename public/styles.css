@@ -692,3 +692,221 @@ body {
   font-size: 0.85rem;
   text-align: center;
 }
+
+/* ─── Token Management ─────────────────────────────── */
+
+/* New-token banner */
+.tokens-new-banner {
+  background: linear-gradient(135deg, rgba(0,240,255,0.06) 0%, rgba(138,43,226,0.06) 100%);
+  border: 1px solid rgba(0,240,255,0.25);
+  border-radius: 14px;
+  padding: 16px 20px;
+  margin-bottom: 20px;
+  animation: fadeSlideIn 0.35s cubic-bezier(0.16,1,0.3,1);
+}
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+.token-banner-label {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--color-secondary);
+  font-weight: 600;
+  margin-bottom: 10px;
+}
+
+.token-banner-value-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.token-banner-input {
+  flex-grow: 1;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid var(--border-glass);
+  color: var(--color-secondary);
+  font-family: monospace;
+  font-size: 0.88rem;
+  padding: 9px 13px;
+  border-radius: 9px;
+  outline: none;
+  text-shadow: 0 0 4px rgba(0,240,255,0.2);
+}
+
+.btn-copy-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, var(--color-secondary) 0%, #00a8ff 100%);
+  border: none;
+  color: #050508;
+  padding: 9px 16px;
+  border-radius: 9px;
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+  white-space: nowrap;
+}
+
+.btn-copy-token:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0,240,255,0.4);
+}
+
+/* Create token button */
+.btn-create-token {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  background: linear-gradient(135deg, var(--color-primary) 0%, #6366f1 100%);
+  border: none;
+  color: white;
+  padding: 9px 18px;
+  border-radius: 10px;
+  font-family: var(--font-sans);
+  font-size: 0.88rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-create-token:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(138,43,226,0.45);
+}
+
+.btn-create-token:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Masked token cell */
+.token-masked {
+  font-family: monospace;
+  font-size: 0.85rem;
+  color: var(--color-text-muted);
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border-glass);
+  padding: 4px 10px;
+  border-radius: 6px;
+  letter-spacing: 1px;
+}
+
+/* Delete token button */
+.btn-delete-token {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: 1px solid rgba(239,68,68,0.25);
+  color: var(--color-danger);
+  padding: 7px 9px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-delete-token:hover {
+  background: rgba(239,68,68,0.12);
+  border-color: var(--color-danger);
+  box-shadow: 0 0 10px rgba(239,68,68,0.25);
+}
+
+.btn-delete-token svg {
+  width: 15px;
+  height: 15px;
+}
+
+/* Confirm modal */
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(5,5,8,0.75);
+  backdrop-filter: blur(12px);
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: fadeInOverlay 0.2s ease;
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.confirm-modal {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: 20px;
+  padding: 32px;
+  width: 100%;
+  max-width: 380px;
+  box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  animation: modalEnter 0.3s cubic-bezier(0.16,1,0.3,1);
+  text-align: center;
+}
+
+.confirm-modal h3 {
+  font-size: 1.15rem;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+
+.confirm-modal p {
+  color: var(--color-text-muted);
+  font-size: 0.9rem;
+  margin-bottom: 24px;
+  line-height: 1.5;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  gap: 12px;
+}
+
+.btn-modal-cancel {
+  flex: 1;
+  padding: 11px;
+  background: transparent;
+  border: 1px solid var(--border-glass);
+  color: var(--color-text-muted);
+  border-radius: 10px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-modal-cancel:hover {
+  border-color: var(--color-text-muted);
+  color: var(--color-text-main);
+}
+
+.btn-modal-delete {
+  flex: 1;
+  padding: 11px;
+  background: linear-gradient(135deg, var(--color-danger) 0%, #c0392b 100%);
+  border: none;
+  color: white;
+  border-radius: 10px;
+  font-family: var(--font-sans);
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition);
+}
+
+.btn-modal-delete:hover {
+  box-shadow: 0 6px 16px rgba(239,68,68,0.4);
+  transform: translateY(-1px);
+}
